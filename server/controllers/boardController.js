@@ -64,16 +64,54 @@ exports.updatePost = async (req, res) => {
 };
 
 exports.deletePost = async (req, res) => {
+  const postId = req.params.id;
   try {
-    const { id } = req.params;
+    // 1. JSON 파일에서 게시물 목록 읽기
     const data = await fs.readFile(DATA_FILE, "utf8");
-    let posts = JSON.parse(data);
-    const filteredPosts = posts.filter(
-      (post) => String(post.id) !== String(id)
-    );
-    await fs.writeFile(DATA_FILE, JSON.stringify(filteredPosts, null, 2));
-    res.json({ message: "게시물이 삭제되었습니다." });
+    const posts = JSON.parse(data);
+
+    // 2. 삭제할 게시물 찾기
+    const postIndex = posts.findIndex((post) => post.id === postId);
+    if (postIndex === -1) {
+      return res.status(404).json({ message: "게시물을 찾을 수 없습니다." });
+    }
+
+    const postToDelete = posts[postIndex];
+
+    // 3. 게시물 콘텐츠에서 이미지 URL 추출
+    const imageUrlRegex =
+      /<img\s+src=["'](http:\/\/localhost:5001\/uploads\/images\/[^"']+)["'][^>]*>/g;
+    let match;
+    const imageUrls = [];
+    while ((match = imageUrlRegex.exec(postToDelete.content)) !== null) {
+      imageUrls.push(match[1]);
+    }
+
+    // 4. 각 이미지 URL에 해당하는 파일 삭제
+    for (const url of imageUrls) {
+      const fileName = path.basename(url); // 파일명 추출
+      // 수정된 경로: controllers 폴더에서 상위 폴더(data/uploads/images)로 이동
+      const filePath = path.join(
+        __dirname,
+        "..",
+        "data",
+        "uploads",
+        "images",
+        fileName
+      );
+      try {
+        await fs.unlink(filePath);
+        console.log(`Deleted file: ${filePath}`);
+      } catch (err) {
+        console.error(`파일 삭제 오류 (${filePath}):`, err);
+      }
+    }
+    // 5. 게시물 목록에서 해당 게시물 삭제 후 JSON 파일 업데이트
+    posts.splice(postIndex, 1);
+    await fs.writeFile(DATA_FILE, JSON.stringify(posts, null, 2));
+    res.json({ message: "게시물과 관련 이미지가 삭제되었습니다." });
   } catch (error) {
-    res.status(500).json({ message: "게시물 삭제 중 오류 발생" });
+    console.error("게시물 삭제 중 오류 발생:", error);
+    res.status(500).json({ message: "게시물 삭제에 실패했습니다." });
   }
 };

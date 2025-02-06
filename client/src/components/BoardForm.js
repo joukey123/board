@@ -32,14 +32,6 @@ const BoardForm = ({ initialPost = null, onPostCreated, onCancel }) => {
     input.onchange = async () => {
       const file = input.files[0];
       if (!file) return;
-      if (!file.type.startsWith("image/")) {
-        alert("이미지 파일만 업로드할 수 있습니다.");
-        return;
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        alert("파일 크기는 5MB를 초과할 수 없습니다.");
-        return;
-      }
 
       const reader = new FileReader();
       reader.readAsDataURL(file);
@@ -80,66 +72,42 @@ const BoardForm = ({ initialPost = null, onPostCreated, onCancel }) => {
     "image",
     "video",
   ];
-
+  // base64를 Blob으로 변환하는 함수
+  const base64ToBlob = (base64) => {
+    const byteString = atob(base64.split(",")[1]);
+    const mimeString = base64.split(",")[0].split(":")[1].split(";")[0];
+    const ab = new ArrayBuffer(byteString.length);
+    const ia = new Uint8Array(ab);
+    for (let i = 0; i < byteString.length; i++) {
+      ia[i] = byteString.charCodeAt(i);
+    }
+    return new Blob([ab], { type: mimeString });
+  };
   // 게시물 저장 (새 글 작성)
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     try {
-      // 이미지 업로드
-      const uploadedImages = await Promise.all(
-        tempImages.map(async (img) => {
-          const formData = new FormData();
-          formData.append("image", img.file);
-
-          // const response = await axios.post(
-          //   "http://localhost:5001/api/upload",
-          //   formData,
-          //   {
-          //     headers: { "Content-Type": "multipart/form-data" },
-          //   }
-          // );
-
-          return { tempUrl: img.tempUrl, serverUrl: response.data.imageUrl };
-        })
+      const base64Images = Array.from(
+        content.matchAll(
+          /<img src="data:(image\/[a-zA-Z]+);base64,(.*?)"[^>]*>/g
+        )
       );
 
-      // 콘텐츠에서 임시 이미지 URL을 서버 이미지 URL로 변환
-      let processedContent = content;
-      uploadedImages.forEach((img) => {
-        processedContent = processedContent.replace(img.tempUrl, img.serverUrl);
-      });
-
-      // 게시물 생성
-      const response = await axios.post("http://localhost:5001/api/board", {
-        title,
-        content: processedContent,
-      });
-
-      // onPostCreated(response.data);
-      setTitle("");
-      setContent("");
-      setTempImages([]);
-      const updateList = await fetchPosts();
-      setPosts(updateList); // 수정된 게시물 표시
-    } catch (error) {
-      console.error("게시물 작성 중 오류 발생:", error);
-      alert("게시물 작성에 실패했습니다.");
-    }
-  };
-
-  // 게시물 수정
-  const handleUpdate = async (e) => {
-    e.preventDefault();
-    if (!initialPost) return;
-
-    try {
-      // 이미지 업로드 처리
       const uploadedImages = await Promise.all(
-        tempImages.map(async (img) => {
-          const formData = new FormData();
-          formData.append("image", img.file);
+        base64Images.map(async (match, index) => {
+          const mimeType = match[1]; // 예: image/png
+          const base64String = `data:${mimeType};base64,${match[2]}`;
+          const blob = base64ToBlob(base64String);
 
-          const response = await axios.put(
+          const extension = mimeType.split("/")[1]; // 확장자 추출 (png, jpeg 등)
+          const fileName = `image_${Date.now()}_${index}.${extension}`;
+
+          const formData = new FormData();
+          formData.append("image", blob, fileName);
+
+          const response = await axios.post(
             "http://localhost:5001/api/upload",
             formData,
             {
@@ -147,28 +115,92 @@ const BoardForm = ({ initialPost = null, onPostCreated, onCancel }) => {
             }
           );
 
-          return { tempUrl: img.tempUrl, serverUrl: response.data.imageUrl };
+          return { base64String, serverUrl: response.data.imageUrl };
         })
       );
 
-      // 본문 내 이미지 URL 변경
-      let updatedContent = content;
-      uploadedImages.forEach((img) => {
-        updatedContent = updatedContent.replace(img.tempUrl, img.serverUrl);
+      // 콘텐츠에서 base64 이미지를 서버 URL로 대체
+      let processedContent = content;
+      uploadedImages.forEach(({ base64String, serverUrl }) => {
+        processedContent = processedContent.replace(base64String, serverUrl);
       });
 
-      // 게시물 수정 요청
-      const updatedPost = await updatePost(
-        initialPost.id,
+      // 게시물 저장 요청
+      await axios.post("http://localhost:5001/api/board", {
         title,
-        updatedContent
+        content: processedContent,
+      });
+
+      alert("게시물이 성공적으로 저장되었습니다!");
+
+      setTitle("");
+      setContent("");
+      const updatedPosts = await fetchPosts();
+
+      setPosts(updatedPosts);
+    } catch (error) {
+      console.error("게시물 저장 중 오류 발생:", error);
+      alert("게시물 저장에 실패했습니다.");
+    }
+  };
+  // 게시물 수정
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    try {
+      // 콘텐츠 내에서 base64 이미지 태그 추출 (mime 타입과 base64 데이터 캡쳐)
+      const base64Images = Array.from(
+        content.matchAll(
+          /<img src="data:(image\/[a-zA-Z]+);base64,(.*?)"[^>]*>/g
+        )
       );
 
+      // base64 이미지를 서버에 업로드 후 URL을 받아옴
+      const uploadedImages = await Promise.all(
+        base64Images.map(async (match, index) => {
+          const mimeType = match[1]; // 예: image/png
+          // 재구성: data:image/png;base64,AAA...
+          const base64String = `data:${mimeType};base64,${match[2]}`;
+          const blob = base64ToBlob(base64String);
+          const extension = mimeType.split("/")[1]; // png, jpeg 등
+          const fileName = `image_${Date.now()}_${index}.${extension}`;
+          const formData = new FormData();
+          formData.append("image", blob, fileName);
+
+          const response = await axios.post(
+            "http://localhost:5001/api/upload",
+            formData,
+            { headers: { "Content-Type": "multipart/form-data" } }
+          );
+
+          return { base64String, serverUrl: response.data.imageUrl };
+        })
+      );
+
+      // 콘텐츠 내 base64 이미지 부분을 서버 URL로 대체
+      let processedContent = content;
+      uploadedImages.forEach(({ base64String, serverUrl }) => {
+        // 단순 문자열 치환 (필요에 따라 정규표현식 등으로 보완 가능)
+        processedContent = processedContent.replace(base64String, serverUrl);
+      });
+
+      // 수정된 게시물 내용 서버 업데이트 요청 (PUT API 예시)
+      const updatedPost = await axios.put(
+        `http://localhost:5001/api/board/${initialPost.id}`,
+        {
+          title,
+          content: processedContent,
+        }
+      );
+
+      // 업데이트된 결과를 상태에 반영하는 처리 (예: setSelectedPost(updatedPost.data))
+      // … (상태 업데이트 코드)
+      alert("게시물이 성공적으로 수정되었습니다!");
       // onPostUpdated(updatedPost);
-      setSelectedPost(updatedPost);
+      setSelectedPost(updatedPost.data);
 
       setIsEditing(false);
     } catch (error) {
+      console.error("게시물 수정 중 오류 발생:", error);
       alert("게시물 수정에 실패했습니다.");
     }
   };

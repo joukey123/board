@@ -24,30 +24,30 @@ app.get("/", (req, res) => {
 });
 
 // 정적 파일 제공 경로 설정
-const clientPublicPath = path.join(__dirname, "../client/public");
-app.use(express.static(clientPublicPath));
+// const clientPublicPath = path.join(__dirname, "../client/public");
+// app.use(express.static(clientPublicPath));
 
-const uploadsPath = path.join(clientPublicPath, "uploads");
-app.use("/uploads", express.static(uploadsPath));
+// const uploadsPath = path.join(clientPublicPath, "uploads");
+// app.use("/uploads", express.static(uploadsPath));
 
-// 업로드 폴더 설정
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = uploadsPath;
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    cb(null, `${Date.now()}-${file.originalname}`);
-  },
-});
+// // 업로드 폴더 설정
+// const storage = multer.diskStorage({
+//   destination: (req, file, cb) => {
+//     const uploadDir = uploadsPath;
+//     if (!fs.existsSync(uploadDir)) {
+//       fs.mkdirSync(uploadDir, { recursive: true });
+//     }
+//     cb(null, uploadDir);
+//   },
+//   filename: (req, file, cb) => {
+//     cb(null, `${Date.now()}-${file.originalname}`);
+//   },
+// });
 
-const upload = multer({
-  storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB 제한
-});
+// const upload = multer({
+//   storage: storage,
+//   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB 제한
+// });
 
 // 이미지 업로드 API
 // app.post("/api/upload", upload.single("image"), (req, res) => {
@@ -66,11 +66,36 @@ const upload = multer({
 //   }
 // });
 
+// 이미지 저장 폴더 설정
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(__dirname, "./data/uploads/images"));
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  },
+});
+const upload = multer({ storage });
+
 // 게시판 라우트 연결
 const boardRoutes = require("./routes/boardRoutes");
 
-app.use("/api/board", boardRoutes);
+app.post("/api/upload", upload.single("image"), (req, res) => {
+  try {
+    if (!req.file) throw new Error("파일이 업로드되지 않았습니다.");
+    const imageUrl = `http://localhost:5001/uploads/images/${req.file.filename}`; // 실제 URL 생성
+    res.json({ imageUrl });
+  } catch (error) {
+    console.error("업로드 중 오류 발생:", error);
+    res
+      .status(500)
+      .json({ message: "이미지 업로드 실패", error: error.message });
+  }
+});
 
+app.use("/api/board", boardRoutes);
+app.use("/uploads", express.static(path.join(__dirname, "data", "uploads")));
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {
   console.log(`서버가 ${PORT}번 포트에서 실행 중입니다.`);

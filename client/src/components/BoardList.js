@@ -40,6 +40,10 @@ const BoardList = () => {
 
   // 📌 게시물 삭제
   const handleDeletePost = async (postId) => {
+    // 삭제 전 사용자에게 확인
+    const confirmed = window.confirm("정말 삭제하시겠습니까?");
+    if (!confirmed) return; // 사용자가 취소하면 아무 작업도 하지 않음
+
     try {
       await deletePost(postId);
       setPosts(posts.filter((post) => post.id !== postId));
