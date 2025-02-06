@@ -1,7 +1,7 @@
 const fs = require("fs").promises;
 const path = require("path");
 
-const DATA_FILE = path.join(__dirname, "../../data/api/posts.json");
+const DATA_FILE = path.join(__dirname, "../data/api/posts.json");
 // const DATA_FILE = "http://mempro.co.kr/uploads/board/api/posts.json";
 
 exports.getPosts = async (req, res) => {
