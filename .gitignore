@@ -1,6 +1,5 @@
 client/node_modules
 server/node_modules
-.env
 /uploads
 .DS_Store
 /assets

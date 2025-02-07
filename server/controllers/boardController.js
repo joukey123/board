@@ -24,6 +24,11 @@ exports.getPosts = async (req, res) => {
 exports.createPost = async (req, res) => {
   try {
     const { title, content } = req.body;
+    // 데이터 파일 존재 여부 확인
+    if (!fs.existsSync(DATA_FILE)) {
+      // 파일이 없으면 빈 배열로 초기화
+      await fs.writeFile(DATA_FILE, JSON.stringify([]));
+    }
     const data = await fs.readFile(DATA_FILE, "utf8");
     const posts = JSON.parse(data);
 
@@ -36,12 +41,13 @@ exports.createPost = async (req, res) => {
 
     posts.unshift(newPost);
     await fs.writeFile(DATA_FILE, JSON.stringify(posts, null, 2));
-
     res.status(201).json(newPost);
   } catch (error) {
+    console.error("게시물 작성 중 오류 발생:", error);
     res.status(500).json({ message: "게시물 작성에 실패했습니다." });
   }
 };
+
 exports.updatePost = async (req, res) => {
   try {
     const { id } = req.params;

@@ -111,10 +111,13 @@ const BoardForm = ({ initialPost = null, onPostCreated, onCancel }) => {
       });
 
       // 게시물 생성
-      const response = await axios.post(`http://mempro.co.kr:3000/api/board`, {
-        title,
-        content: processedContent,
-      });
+      const response = await axios.post(
+        `${process.env.REACT_APP_BASE_URL}api/board`,
+        {
+          title,
+          content: processedContent,
+        }
+      );
 
       // onPostCreated(response.data);
       setTitle("");
