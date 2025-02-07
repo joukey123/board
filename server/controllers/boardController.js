@@ -3,13 +3,20 @@ const path = require("path");
 
 const DATA_FILE = path.join(__dirname, "../data/api/posts.json");
 // const DATA_FILE = "http://mempro.co.kr/uploads/board/api/posts.json";
-
 exports.getPosts = async (req, res) => {
   try {
+    // 파일 존재 여부 확인
+    if (!fs.existsSync(DATA_FILE)) {
+      return res
+        .status(404)
+        .json({ message: "데이터 파일이 존재하지 않습니다.", path: DATA_FILE });
+    }
+
     const data = await fs.readFile(DATA_FILE, "utf8");
     const posts = JSON.parse(data);
     res.json(posts);
   } catch (error) {
+    console.error("게시물을 불러오는 중 오류 발생:", error);
     res.status(500).json({ message: "게시물을 불러오는 데 실패했습니다." });
   }
 };

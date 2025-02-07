@@ -14,6 +14,7 @@ const BoardForm = ({ initialPost = null, onPostCreated, onCancel }) => {
   const [isEditing, setIsEditing] = useRecoilState(editingMode);
   const [posts, setPosts] = useRecoilState(postList);
   const [selectedPost, setSelectedPost] = useRecoilState(postSelect);
+  const Base_URL = process.env.REACT_APP_SERVER_URL;
 
   useEffect(() => {
     if (initialPost) {
@@ -110,7 +111,7 @@ const BoardForm = ({ initialPost = null, onPostCreated, onCancel }) => {
       });
 
       // 게시물 생성
-      const response = await axios.post("http://localhost:5001/api/board", {
+      const response = await axios.post(`http://mempro.co.kr:3000/api/board`, {
         title,
         content: processedContent,
       });
@@ -140,7 +141,7 @@ const BoardForm = ({ initialPost = null, onPostCreated, onCancel }) => {
           formData.append("image", img.file);
 
           const response = await axios.put(
-            "http://localhost:5001/api/upload",
+            `http://mempro.co.kr:3000/api/upload`,
             formData,
             {
               headers: { "Content-Type": "multipart/form-data" },
@@ -179,7 +180,9 @@ const BoardForm = ({ initialPost = null, onPostCreated, onCancel }) => {
     if (!window.confirm("정말 삭제하시겠습니까?")) return;
 
     try {
-      await axios.delete(`http://localhost:5001/api/board/${initialPost.id}`);
+      await axios.delete(
+        `http://mempro.co.kr:3000/api/board/${initialPost.id}`
+      );
     } catch (error) {
       console.error("게시물 삭제 중 오류 발생:", error);
       alert("게시물 삭제에 실패했습니다.");

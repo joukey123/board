@@ -176,7 +176,7 @@ const BoardList = () => {
         <div>
           <h2>게시물 목록</h2>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
-            {posts.map((post) => {
+            {posts?.map((post) => {
               const firstImage = extractFirstMedia(post.content);
               return (
                 <div

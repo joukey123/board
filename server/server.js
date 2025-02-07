@@ -3,13 +3,26 @@ const cors = require("cors");
 const path = require("path");
 const multer = require("multer");
 const fs = require("fs");
+const boardRoutes = require("./routes/boardRoutes");
 
 const app = express();
+const allowedOrigins = [
+  "http://mempro.co.kr:3000",
+  "http://www.mempro.co.kr:3000",
+];
 
 // CORS 설정
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    origin: function (origin, callback) {
+      // 요청에 origin이 없는 경우 (예: Postman, curl)는 허용
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        return callback(null, true);
+      } else {
+        return callback(new Error("Not allowed by CORS"), false);
+      }
+    },
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
@@ -19,10 +32,12 @@ app.use(
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-app.get("/", (req, res) => {
-  res.send("게시판 서버가 정상적으로 실행 중입니다.");
-});
+app.use(express.static(path.join(__dirname, "public")));
+// 모든 요청에 대해 React 앱의 index.html 반환 (클라이언트 사이드 라우팅 지원)
 
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
 // 정적 파일 제공 경로 설정
 const clientPublicPath = path.join(__dirname, "../client/public");
 app.use(express.static(clientPublicPath));
@@ -67,11 +82,10 @@ const upload = multer({
 // });
 
 // 게시판 라우트 연결
-const boardRoutes = require("./routes/boardRoutes");
 
 app.use("/api/board", boardRoutes);
 
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`서버가 ${PORT}번 포트에서 실행 중입니다.`);
 });
