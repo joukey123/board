@@ -2,7 +2,7 @@ import axios from "axios";
 
 const Base_URL = process.env.REACT_APP_SERVER_URL;
 
-const API_URL = `http://www.mempro.co.kr:3000/api/board`;
+const API_URL = `http://mempro.co.kr:3000/api/board`;
 
 export const fetchPosts = async () => {
   try {

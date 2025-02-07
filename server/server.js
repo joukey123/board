@@ -6,28 +6,15 @@ const fs = require("fs");
 const boardRoutes = require("./routes/boardRoutes");
 
 const app = express();
-const allowedOrigins = [
-  "http://mempro.co.kr:3000",
-  "http://www.mempro.co.kr:3000",
-];
 
 // CORS 설정
 app.use(
   cors({
-    origin: function (origin, callback) {
-      // 요청에 origin이 없는 경우 (예: Postman, curl)는 허용
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.indexOf(origin) !== -1) {
-        return callback(null, true);
-      } else {
-        return callback(new Error("Not allowed by CORS"), false);
-      }
-    },
+    origin: "http://mempro.co.kr:3000",
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
-
 // 요청 크기 제한 증가
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
