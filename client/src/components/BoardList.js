@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import {
   fetchPosts,
   deletePost,
@@ -19,78 +19,39 @@ const BoardList = () => {
     const loadPosts = async () => {
       try {
         const fetchedPosts = await fetchPosts();
-        setPosts(fetchedPosts);
+        // 데이터가 배열인지 확인하고, 아니라면 빈 배열로 설정합니다.
+        if (!Array.isArray(fetchedPosts)) {
+          console.error(
+            "Fetched posts 데이터가 배열이 아닙니다:",
+            fetchedPosts
+          );
+          setPosts([]);
+        } else {
+          setPosts(fetchedPosts);
+        }
       } catch (error) {
         console.error("게시물 로딩 실패:", error);
       }
     };
     loadPosts();
-  }, [selectedPost]);
+  }, [selectedPost, setPosts]);
 
-  // 📌 게시물 선택 (상세 보기)
-  const handleViewPost = (post) => {
-    setSelectedPost(post);
-    setIsEditing(false);
-  };
+  // 렌더링 전에 posts가 배열인지 확인하는 guard
+  if (!Array.isArray(posts)) {
+    console.error("posts가 배열이 아닙니다:", posts);
+    return <div>게시물 데이터를 불러올 수 없습니다.</div>;
+  }
 
-  // 📌 수정 모드로 전환
-  const handleEditPost = () => {
-    setIsEditing(true);
-  };
+  const fallbackImage = "https://mempro.co.kr/noImg.jpg";
 
-  // 📌 게시물 삭제
-  const handleDeletePost = async (postId) => {
-    try {
-      await deletePost(postId);
-      setPosts(posts.filter((post) => post.id !== postId));
-      setSelectedPost(null);
-    } catch (error) {
-      console.error("게시물 삭제 실패:", error);
-    }
-  };
-
-  // 📌 게시물 수정 완료 시 상세 보기로 전환
-  const handlePostUpdated = async (updatedPost) => {
-    console.log(updatedPost, "pup");
-    const refreshedPost = await fetchPostById(updatedPost.id);
-    setPosts(
-      posts.map((post) => (post.id === updatedPost.id ? updatedPost : post))
-    );
-    setSelectedPost(updatedPost);
-    // ✅ 수정 완료 메시지 후 상세 보기로 이동
-    alert("수정 완료");
-    setIsEditing(false);
-  };
-
-  // 📌 게시물에서 첫 번째 이미지를 추출하는 함수
-  // const extractFirstImage = (htmlContent) => {
-  //   const tempDiv = document.createElement("div");
-  //   tempDiv.innerHTML = htmlContent;
-  //   const imgTag = tempDiv.querySelector("img");
-  //   return imgTag ? imgTag.src : null;
-  // };
-
-  const fallbackImage = "https://mempro.co.kr/noImg.jpg"; // 기본 대체 이미지
-
-  //유튜브 동영상 아이디 구하기
-  const extractYouTubeId = (iframeSrc) => {
-    const regex = /youtube\.com\/embed\/([^?]+)/;
-    const match = iframeSrc.match(regex);
-    return match ? match[1] : null;
-  };
-  // 📌 게시물에서 첫 번째 이미지를 추출하는 함수
-
+  // 예시: 게시물에서 첫 번째 미디어(이미지 또는 iframe)를 추출하는 함수
   const extractFirstMedia = (htmlContent) => {
     const tempDiv = document.createElement("div");
     tempDiv.innerHTML = htmlContent;
-
-    // 모든 이미지와 iframe 태그를 배열로 가져오기
     const images = tempDiv.querySelectorAll("img");
     const iframes = tempDiv.querySelectorAll("iframe");
 
-    // 이미지와 iframe 중 가장 먼저 나오는 요소를 반환
     let firstMedia = null;
-
     if (images.length > 0 && iframes.length > 0) {
       firstMedia =
         images[0].compareDocumentPosition(iframes[0]) &
@@ -103,21 +64,16 @@ const BoardList = () => {
       firstMedia = iframes[0];
     }
 
-    // 썸네일 URL 생성
     if (firstMedia) {
       if (firstMedia.tagName === "IMG") {
-        return firstMedia.src; // 이미지일 경우 이미지 URL 반환
-      } else if (
-        firstMedia.tagName === "IFRAME" &&
-        firstMedia.src.includes("youtube.com")
-      ) {
-        const videoId = extractYouTubeId(firstMedia.src);
-        return videoId ? `https://img.youtube.com/vi/${videoId}/0.jpg` : null;
+        return firstMedia.src;
       }
+      // 유튜브 iframe 등일 경우 추가 처리 가능
     }
     return null;
   };
 
+  // Sanitize HTML content
   const createSanitizedHTML = (content) => {
     return DOMPurify.sanitize(content, {
       ADD_TAGS: ["iframe"],
@@ -132,22 +88,51 @@ const BoardList = () => {
     });
   };
 
+  // 핸들러 함수들 (게시물 선택, 수정, 삭제 등)
+  const handleViewPost = (post) => {
+    setSelectedPost(post);
+    setIsEditing(false);
+  };
+
+  const handleEditPost = () => {
+    setIsEditing(true);
+  };
+
+  const handleDeletePost = async (postId) => {
+    try {
+      await deletePost(postId);
+      setPosts(posts.filter((post) => post.id !== postId));
+      setSelectedPost(null);
+    } catch (error) {
+      console.error("게시물 삭제 실패:", error);
+    }
+  };
+
+  const handlePostUpdated = async (updatedPost) => {
+    try {
+      const refreshedPost = await fetchPostById(updatedPost.id);
+      setPosts(
+        posts.map((post) => (post.id === updatedPost.id ? updatedPost : post))
+      );
+      setSelectedPost(updatedPost);
+      alert("수정 완료");
+      setIsEditing(false);
+    } catch (error) {
+      console.error("게시물 수정 실패:", error);
+    }
+  };
+
   return (
     <div>
-      {/* 📌 게시물 상세 보기 OR 수정 */}
       {selectedPost ? (
         <div>
           {isEditing ? (
-            // 🔹 편집 모드 (Quill 에디터)
-            <div>
-              <BoardForm
-                initialPost={selectedPost}
-                onPostCreated={handlePostUpdated}
-                onCancel={() => setIsEditing(false)}
-              />
-            </div>
+            <BoardForm
+              initialPost={selectedPost}
+              onPostCreated={handlePostUpdated}
+              onCancel={() => setIsEditing(false)}
+            />
           ) : (
-            // 🔹 상세 보기 모드
             <div>
               <h2>{selectedPost.title}</h2>
               <div
@@ -162,7 +147,6 @@ const BoardList = () => {
                   minHeight: "200px",
                 }}
               />
-              {/* 🔹 수정 버튼 → 편집 모드에서는 "완료"로 변경 */}
               <button onClick={handleEditPost}>수정</button>
               <button onClick={() => handleDeletePost(selectedPost.id)}>
                 삭제
@@ -172,11 +156,10 @@ const BoardList = () => {
           )}
         </div>
       ) : (
-        // 📌 게시물 목록 화면
         <div>
           <h2>게시물 목록</h2>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
-            {posts?.map((post) => {
+            {posts.map((post) => {
               const firstImage = extractFirstMedia(post.content);
               return (
                 <div
@@ -193,34 +176,6 @@ const BoardList = () => {
                     justifyContent: "center",
                   }}
                 >
-                  {/* {firstImage ? (
-                    <img
-                      src={firstImage || fallbackImage}
-                      alt="썸네일"
-                      style={{
-                        width: "100px",
-                        height: "100px",
-                        objectFit: "cover",
-                        borderRadius: "8px",
-                      }}
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        width: "100px",
-                        height: "100px",
-                        backgroundColor: "#007bff",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        borderRadius: "8px",
-                        color: "white",
-                        fontSize: "14px",
-                      }}
-                    >
-                      NO IMAGE
-                    </div>
-                  )} */}
                   <img
                     src={firstImage || fallbackImage}
                     alt="썸네일"
